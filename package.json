@@ -1,0 +1,30 @@
+{
+  "name": "AI-Tool-Calling-Integration",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo (Next.js frontend + NestJS backend)",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "dev:frontend": "pnpm --filter=@app/frontend dev",
+    "dev:backend": "pnpm --filter=@app/backend start:dev",
+    "dev:all": "concurrently \"pnpm --filter=@app/frontend dev\" \"pnpm --filter=@app/backend start:dev\"",
+    "build:frontend": "pnpm --filter=@app/frontend build",
+    "build:backend": "pnpm --filter=@app/backend build",
+    "build:all": "pnpm -r build",
+    "start:backend": "pnpm --filter=@app/backend start:prod"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.2",
+    "prettier": "^3.7.4"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=18"
+  }
+}
