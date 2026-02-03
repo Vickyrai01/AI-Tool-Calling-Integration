@@ -12,7 +12,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-    app.use(
+  app.use(
     rateLimit({
       windowMs: 5 * 60 * 1000,
       max: 30,

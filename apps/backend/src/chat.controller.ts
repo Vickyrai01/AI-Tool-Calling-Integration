@@ -9,4 +9,3 @@ export class ChatController {
     return { text: `Recibido: ${text}. Backend OK.` };
   }
 }
-
