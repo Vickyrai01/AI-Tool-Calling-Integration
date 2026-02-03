@@ -14,5 +14,9 @@ export class Exercise {
   @Prop({ type: [String], required: true }) steps!: string[];
   @Prop({ required: true }) answer!: string;
   @Prop() sourceUrl?: string;
+
+  @Prop({ type: Date }) createdAt?: Date;
+  @Prop({ type: Date }) updatedAt?: Date;
 }
+
 export const ExerciseSchema = SchemaFactory.createForClass(Exercise);

@@ -1,1 +1,1 @@
-export * from "./schema/intents";
+export * from "./schema/intents.js";

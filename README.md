@@ -31,6 +31,7 @@ Bot de chat para generar ejercicios de matemática “estilo parcial de matemati
 ## Variables de entorno
 
 Backend (apps/backend/.env):
+
 - OPENAI_API_KEY=sk-...
 - MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/ai_tool_calling
 - FRONTEND_ORIGIN=https://ai-tool-calling-integration.vercel.app
@@ -40,26 +41,30 @@ Backend (apps/backend/.env):
 - PORT=3001 (local; en Render usar PORT inyectado)
 
 Frontend (apps/frontend/.env.local):
+
 - NEXT_PUBLIC_API_URL=https://ai-tool-calling-integration.onrender.com
 
 ## Setup local
 
 Requisitos:
+
 - Node 18+
 - pnpm 10+
 
 Instalación y dev:
+
 - pnpm install
 - Configurar `.env` en apps/backend y `.env.local` en apps/frontend
 - Levantar:
-  - pnpm run dev:backend   # backend en 3001
-  - pnpm run dev:frontend  # frontend en 3000
+  - pnpm run dev:backend # backend en 3001
+  - pnpm run dev:frontend # frontend en 3000
 - Probar:
   - curl -X POST http://localhost:3001/chat -H "Content-Type: application/json" -d "{\"text\":\"hola\"}"
 
 Notas workspace:
+
 - pnpm-workspace.yaml solo en la raíz
-- No tener `pnpm-lock.yaml` dentro de apps/* (solo en raíz)
+- No tener `pnpm-lock.yaml` dentro de apps/\* (solo en raíz)
 
 ## Endpoints (stubs Día 1)
 
@@ -76,6 +81,7 @@ Repo: https://github.com/Vickyrai01/math-seed
 Archivo: `dataset/seed.json`
 
 Ejemplo de lectura:
+
 ```
 curl -H "Accept: application/vnd.github.v3.raw" https://api.github.com/repos/Vickyrai01/math-seed/contents/dataset/seed.json
 ```
@@ -83,10 +89,12 @@ curl -H "Accept: application/vnd.github.v3.raw" https://api.github.com/repos/Vic
 ## Deploy
 
 Frontend (Vercel):
+
 - Root Directory: `apps/frontend`
 - Env: `NEXT_PUBLIC_API_URL=https://ai-tool-calling-integration.onrender.com`
 
 Backend (Render/Railway):
+
 - Root Directory: `apps/backend`
 - Install: `pnpm i`
 - Build: `pnpm --filter @app/backend build`

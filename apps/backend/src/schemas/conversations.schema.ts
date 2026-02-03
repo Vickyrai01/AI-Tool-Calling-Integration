@@ -7,5 +7,9 @@ export type ConversationDocument = HydratedDocument<Conversation>;
 export class Conversation {
   @Prop() title?: string;
   @Prop() userId?: string;
+
+  @Prop({ type: Date }) createdAt?: Date;
+  @Prop({ type: Date }) updatedAt?: Date;
 }
+
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

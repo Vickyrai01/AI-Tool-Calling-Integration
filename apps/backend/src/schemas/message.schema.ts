@@ -16,6 +16,10 @@ export class Message {
 
   @Prop({ type: Object })
   metadata?: Record<string, any>;
+
+  @Prop({ type: Date }) createdAt?: Date;
+  @Prop({ type: Date }) updatedAt?: Date;
 }
+
 export const MessageSchema = SchemaFactory.createForClass(Message);
 MessageSchema.index({ conversationId: 1, createdAt: 1 });
