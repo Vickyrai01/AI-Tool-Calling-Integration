@@ -1,22 +1,38 @@
-'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import ConversationsList from '@/components/Sidebar/ConversationsList';
-import ConversationsDrawer from '@/components/Sidebar/ConversationsDrawer';
-import MessageBubble from '@/components/Chat/MessageBubble';
-import ExerciseCard from '@/components/Chat/ExerciseCard';
-import ChatInput from '@/components/Chat/ChatInput';
-import ErrorBanner from '@/components/UI/ErrorBanner';
-import DebugSidebar from '@/components/Debug/DebugSidebar';
-import DebugSheet from '@/components/Debug/DebugSheet';
-import AppHeader from '@/components/Header/AppHeader';
-import ScrollToBottom from '@/components/UI/ScrollToBottom';
-import WelcomeScreen from '@/components/Welcome/WelcomeScreen';
-import type { Exercise, ConversationDetail, ChatResponse, ChatMeta } from '@/lib/types';
-import { getConversation, postChat } from '@/lib/api';
+"use client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import ConversationsList from "@/components/Sidebar/ConversationsList";
+import ConversationsDrawer from "@/components/Sidebar/ConversationsDrawer";
+import MessageBubble from "@/components/Chat/MessageBubble";
+import ExerciseCard from "@/components/Chat/ExerciseCard";
+import ChatInput from "@/components/Chat/ChatInput";
+import ErrorBanner from "@/components/UI/ErrorBanner";
+import DebugSidebar from "@/components/Debug/DebugSidebar";
+import DebugSheet from "@/components/Debug/DebugSheet";
+import AppHeader from "@/components/Header/AppHeader";
+import ScrollToBottom from "@/components/UI/ScrollToBottom";
+import WelcomeScreen from "@/components/Welcome/WelcomeScreen";
+import type {
+  Exercise,
+  ConversationDetail,
+  ChatResponse,
+  ChatMeta,
+} from "@/lib/types";
+import { getConversation, postChat } from "@/lib/api";
 
 type ChatItem =
-  | { role: 'user' | 'assistant'; kind: 'text'; text: string; createdAt?: string }
-  | { role: 'assistant'; kind: 'exercises'; exercises: Exercise[]; createdAt?: string; messageId?: string };
+  | {
+      role: "user" | "assistant";
+      kind: "text";
+      text: string;
+      createdAt?: string;
+    }
+  | {
+      role: "assistant";
+      kind: "exercises";
+      exercises: Exercise[];
+      createdAt?: string;
+      messageId?: string;
+    };
 
 export default function ChatPage() {
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -29,10 +45,10 @@ export default function ChatPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    setDebugOn(localStorage.getItem('debugOn') === '1');
+    setDebugOn(localStorage.getItem("debugOn") === "1");
   }, []);
   useEffect(() => {
-    localStorage.setItem('debugOn', debugOn ? '1' : '0');
+    localStorage.setItem("debugOn", debugOn ? "1" : "0");
   }, [debugOn]);
 
   const loadConversation = useCallback(async (id: string) => {
@@ -47,11 +63,17 @@ export default function ChatPage() {
 
       const messages = Array.isArray(data?.messages) ? data.messages : [];
       for (const m of messages) {
-        if (m.role !== 'user' && m.role !== 'assistant') continue;
-        const text = String(m.content ?? '');
-        const looksJson = text.trim().startsWith('{') || text.trim().startsWith('[');
-        if (m.role === 'assistant' && looksJson) continue;
-        timeline.push({ role: m.role, kind: 'text', text, createdAt: m.createdAt });
+        if (m.role !== "user" && m.role !== "assistant") continue;
+        const text = String(m.content ?? "");
+        const looksJson =
+          text.trim().startsWith("{") || text.trim().startsWith("[");
+        if (m.role === "assistant" && looksJson) continue;
+        timeline.push({
+          role: m.role,
+          kind: "text",
+          text,
+          createdAt: m.createdAt,
+        });
       }
 
       const exs = Array.isArray(data?.exercises) ? data.exercises : [];
@@ -62,7 +84,13 @@ export default function ChatPage() {
       }
       for (const [key, list] of groups.entries()) {
         const createdAt = list[0]?.createdAt;
-        timeline.push({ role: 'assistant', kind: 'exercises', exercises: list, createdAt, messageId: key });
+        timeline.push({
+          role: "assistant",
+          kind: "exercises",
+          exercises: list,
+          createdAt,
+          messageId: key,
+        });
       }
 
       timeline.sort((a, b) => {
@@ -73,14 +101,17 @@ export default function ChatPage() {
 
       setItems(timeline);
     } catch {
-      setError('No se pudo cargar la conversación');
+      setError("No se pudo cargar la conversación");
     }
   }, []);
 
   async function handleSend(text: string) {
     setError(null);
     const now = new Date().toISOString();
-    setItems((m) => [...m, { role: 'user', kind: 'text', text, createdAt: now }]);
+    setItems((m) => [
+      ...m,
+      { role: "user", kind: "text", text, createdAt: now },
+    ]);
     setLoading(true);
     try {
       const res: ChatResponse = await postChat({
@@ -96,7 +127,7 @@ export default function ChatPage() {
         setRefreshKey((k) => k + 1);
       }
 
-      if ('data' in res && res.data?.exercises) {
+      if ("data" in res && res.data?.exercises) {
         const exs: Exercise[] = res.data.exercises.map((e) => ({
           id: e.id ?? crypto.randomUUID(),
           topic: e.topic,
@@ -107,17 +138,40 @@ export default function ChatPage() {
           sourceUrl: e.source?.url ?? e.sourceUrl,
           createdAt: now,
         }));
-        setItems((m) => [...m, { role: 'assistant', kind: 'exercises', exercises: exs, createdAt: now }]);
-      } else if ('text' in res) {
-        setItems((m) => [...m, { role: 'assistant', kind: 'text', text: String(res.text), createdAt: now }]);
+        setItems((m) => [
+          ...m,
+          {
+            role: "assistant",
+            kind: "exercises",
+            exercises: exs,
+            createdAt: now,
+          },
+        ]);
+      } else if ("text" in res) {
+        setItems((m) => [
+          ...m,
+          {
+            role: "assistant",
+            kind: "text",
+            text: String(res.text),
+            createdAt: now,
+          },
+        ]);
       } else {
         setItems((m) => [
           ...m,
-          { role: 'assistant', kind: 'text', text: JSON.stringify(res, null, 2), createdAt: now },
+          {
+            role: "assistant",
+            kind: "text",
+            text: JSON.stringify(res, null, 2),
+            createdAt: now,
+          },
         ]);
       }
     } catch (e: any) {
-      const msg = e?.message ? String(e.message) : 'Error al contactar el backend';
+      const msg = e?.message
+        ? String(e.message)
+        : "Error al contactar el backend";
       setError(msg);
     } finally {
       setLoading(false);
@@ -140,7 +194,7 @@ export default function ChatPage() {
   }
 
   useEffect(() => {
-    if (selectedConvId && !selectedConvId.startsWith('draft-')) {
+    if (selectedConvId && !selectedConvId.startsWith("draft-")) {
       loadConversation(selectedConvId);
     }
   }, [refreshKey, selectedConvId, loadConversation]);
@@ -172,7 +226,9 @@ export default function ChatPage() {
           onOpenConversations={() => setDrawerOpen(true)}
         />
 
-        {error && <ErrorBanner message={error} onClose={() => setError(null)} />}
+        {error && (
+          <ErrorBanner message={error} onClose={() => setError(null)} />
+        )}
 
         <div className="flex flex-1 overflow-hidden">
           {showWelcome ? (
@@ -183,20 +239,32 @@ export default function ChatPage() {
               />
             </div>
           ) : (
-            <section id="chat-scroll" className="flex-1 overflow-y-auto px-3 lg:px-4 pb-4 pt-6">
+            <section
+              id="chat-scroll"
+              className="flex-1 overflow-y-auto px-3 lg:px-4 pb-4 pt-6"
+            >
               <div className="max-w-full lg:max-w-2xl mx-auto w-full flex flex-col gap-3">
                 {items.map((it, i) => {
-                  if (it.kind === 'text') {
+                  if (it.kind === "text") {
                     return (
-                      <MessageBubble key={i} role={it.role} createdAt={it.createdAt}>
-                        <b>{it.role === 'user' ? 'Usuario' : 'Asistente'}:</b> {it.text}
+                      <MessageBubble
+                        key={i}
+                        role={it.role}
+                        createdAt={it.createdAt}
+                      >
+                        <b>{it.role === "user" ? "Usuario" : "Asistente"}:</b>{" "}
+                        {it.text}
                       </MessageBubble>
                     );
                   }
                   return (
                     <div key={i} className="grid gap-3">
                       {it.exercises.map((ex) => (
-                        <ExerciseCard key={ex.id} ex={ex} onRegenerate={handleRegenerate} />
+                        <ExerciseCard
+                          key={ex.id}
+                          ex={ex}
+                          onRegenerate={handleRegenerate}
+                        />
                       ))}
                     </div>
                   );
@@ -206,7 +274,11 @@ export default function ChatPage() {
             </section>
           )}
 
-          {debugOn && <div className="hidden lg:block"><DebugSidebar meta={lastMeta} /></div>}
+          {debugOn && (
+            <div className="hidden lg:block">
+              <DebugSidebar meta={lastMeta} />
+            </div>
+          )}
         </div>
 
         {/* Footer: ocultar el input cuando mostramos la bienvenida */}
@@ -216,14 +288,21 @@ export default function ChatPage() {
               <div className="max-w-full lg:max-w-2xl mx-auto w-full">
                 {showWelcome ? (
                   <div className="text-xs text-muted py-3 text-center">
-                    Elegí un atajo arriba o usa “Nueva conversación” para empezar.
+                    Elegí un atajo arriba o usa “Nueva conversación” para
+                    empezar.
                   </div>
                 ) : (
-                  <ChatInput onSend={handleSend} loading={loading} maxLength={800} />
+                  <ChatInput
+                    onSend={handleSend}
+                    loading={loading}
+                    maxLength={800}
+                  />
                 )}
               </div>
             </div>
-            {debugOn && <div className="hidden lg:block w-96 border-l border-transparent" />}
+            {debugOn && (
+              <div className="hidden lg:block w-96 border-l border-transparent" />
+            )}
           </div>
         </footer>
       </main>
@@ -235,8 +314,14 @@ export default function ChatPage() {
         onSelect={(id) => loadConversation(id)}
         refreshKey={refreshKey}
       />
-      <DebugSheet open={debugOn} onClose={() => setDebugOn(false)} meta={lastMeta} />
-      {!showWelcome && <ScrollToBottom scrollContainerSelector="#chat-scroll" />}
+      <DebugSheet
+        open={debugOn}
+        onClose={() => setDebugOn(false)}
+        meta={lastMeta}
+      />
+      {!showWelcome && (
+        <ScrollToBottom scrollContainerSelector="#chat-scroll" />
+      )}
     </div>
   );
 }

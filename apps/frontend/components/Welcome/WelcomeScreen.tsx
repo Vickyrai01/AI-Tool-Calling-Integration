@@ -1,5 +1,5 @@
-'use client';
-import React from 'react';
+"use client";
+import React from "react";
 
 type Props = {
   onQuickAction: (text: string) => void;
@@ -8,22 +8,41 @@ type Props = {
 
 export default function WelcomeScreen({ onQuickAction, onStart }: Props) {
   const quickPrompts = [
-    { label: 'Ejercicio fácil', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad baja' },
-    { label: 'Ejercicio medio', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad media' },
-    { label: 'Ejercicio difícil', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad alta' },
-    { label: 'Intersección de rectas', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad alta donde me pidan hallar la intersección de L1 y L2' },
+    {
+      label: "Ejercicio fácil",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad baja",
+    },
+    {
+      label: "Ejercicio medio",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad media",
+    },
+    {
+      label: "Ejercicio difícil",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad alta",
+    },
+    {
+      label: "Intersección de rectas",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad alta donde me pidan hallar la intersección de L1 y L2",
+    },
   ];
 
   return (
-    <section className="min-h-[60vh] flex items-start justify-center px-4 pt-8" aria-label="Bienvenida">
+    <section
+      className="min-h-[60vh] flex items-start justify-center px-4 pt-8"
+      aria-label="Bienvenida"
+    >
       <div className="max-w-2xl w-full text-center">
-        <h1 className="text-2xl lg:text-3xl font-bold m-0">ChatBot para ingreso UTN FRBA</h1>
+        <h1 className="text-2xl lg:text-3xl font-bold m-0">
+          ChatBot para ingreso UTN FRBA
+        </h1>
 
         <p className="text-sm text-muted mt-3 leading-relaxed">
-          Esta herramienta busca disminuir el desnivel al iniciar el ingreso a la UTN. En el aula,
-          cada alumno practica ejercicios del mismo estilo que el parcial: quienes avanzan más pueden
-          pedir desafíos de mayor dificultad y quienes necesitan afianzar contenidos pueden optar por
-          ejercicios simples. El docente acompaña y aclara dudas sobre la resolución que devuelve el chatbot.
+          Esta herramienta busca disminuir el desnivel al iniciar el ingreso a
+          la UTN. En el aula, cada alumno practica ejercicios del mismo estilo
+          que el parcial: quienes avanzan más pueden pedir desafíos de mayor
+          dificultad y quienes necesitan afianzar contenidos pueden optar por
+          ejercicios simples. El docente acompaña y aclara dudas sobre la
+          resolución que devuelve el chatbot.
         </p>
 
         {/* CTA móvil: visible solo en celulares (lg:hidden) */}
@@ -68,7 +87,8 @@ export default function WelcomeScreen({ onQuickAction, onStart }: Props) {
         </div>
 
         <div className="mt-4 text-xs text-muted">
-          Cuando el bot usa ejemplos semilla, cita la fuente del dataset (GitHub).
+          Cuando el bot usa ejemplos semilla, cita la fuente del dataset
+          (GitHub).
         </div>
       </div>
     </section>

@@ -26,7 +26,12 @@ export type ConversationDetail = {
   title: string;
   createdAt?: string;
   updatedAt?: string;
-  messages: { id: string; role: 'user' | 'assistant'; content: string; createdAt?: string }[];
+  messages: {
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+    createdAt?: string;
+  }[];
   exercises: Exercise[];
 };
 

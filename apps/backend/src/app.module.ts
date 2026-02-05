@@ -13,6 +13,8 @@ import {
 } from './schemas/conversations.schema';
 import { Message, MessageSchema } from './schemas/message.schema';
 import { Exercise, ExerciseSchema } from './schemas/exercise.schema';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -27,7 +29,7 @@ import { Exercise, ExerciseSchema } from './schemas/exercise.schema';
       { name: Exercise.name, schema: ExerciseSchema },
     ]),
   ],
-  controllers: [ChatController, ConversationsController],
-  providers: [ChatService],
+  controllers: [ChatController, ConversationsController, AppController],
+  providers: [ChatService, AppService],
 })
 export class AppModule {}
