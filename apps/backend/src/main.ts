@@ -13,6 +13,7 @@ async function bootstrap() {
   });
 
   app.use(
+    '/chat',
     rateLimit({
       windowMs: 5 * 60 * 1000,
       max: 30,

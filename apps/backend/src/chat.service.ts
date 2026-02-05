@@ -3,7 +3,7 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat/completions';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { InjectModel } from '@nestjs/mongoose';
@@ -18,29 +18,68 @@ import { Conversation } from './schemas/conversations.schema';
 import { Message } from './schemas/message.schema';
 import { Exercise } from './schemas/exercise.schema';
 
+type DebugToolEvent = {
+  name: string;
+  args?: Record<string, any>;
+  status: 'ok' | 'error';
+  ms?: number;
+  summary?: string;
+};
+
 @Injectable()
 export class ChatService {
   private readonly openai: OpenAI;
+  private readonly logger = new Logger(ChatService.name);
 
   constructor(
     private readonly config: ConfigService,
-
     @InjectModel(Conversation.name)
     private ConversationModel: Model<Conversation>,
-
-    @InjectModel(Message.name)
-    private MessageModel: Model<Message>,
-
-    @InjectModel(Exercise.name)
-    private ExerciseModel: Model<Exercise>,
+    @InjectModel(Message.name) private MessageModel: Model<Message>,
+    @InjectModel(Exercise.name) private ExerciseModel: Model<Exercise>,
   ) {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
     if (!apiKey) {
       throw new Error(
-        'Missing OPENAI_API_KEY. Set it in apps/backend/.env (single line) or as an environment variable.',
+        'Missing OPENAI_API_KEY. Set it en apps/backend/.env o como variable.',
       );
     }
-    this.openai = new OpenAI({ apiKey });
+
+    this.openai = new OpenAI({
+      apiKey,
+      timeout: 25_000,
+      maxRetries: 1,
+    });
+  }
+
+  private async createWithRetry(
+    params: Parameters<OpenAI['chat']['completions']['create']>[0],
+    label: string,
+    attempt = 0,
+  ) {
+    const start = Date.now();
+    try {
+      const res = await this.openai.chat.completions.create(params);
+      const ms = Date.now() - start;
+      this.logger.log(`openai:${label} ok (${ms}ms)`);
+      return { res, ms };
+    } catch (err: any) {
+      const status = err?.status ?? err?.code;
+      const msg = err?.message ?? String(err);
+      this.logger.warn(
+        `openai:${label} fail (status=${status}) attempt=${attempt} msg=${msg}`,
+      );
+      if (
+        (status === 429 || (typeof status === 'number' && status >= 500)) &&
+        attempt < 1
+      ) {
+        const backoff = 600 * Math.pow(2, attempt);
+        this.logger.warn(`openai:${label} retry in ${backoff}ms`);
+        await new Promise((r) => setTimeout(r, backoff));
+        return this.createWithRetry(params, label, attempt + 1);
+      }
+      throw err;
+    }
   }
 
   private async ensureConversation(conversationId?: string) {
@@ -104,69 +143,258 @@ export class ChatService {
       { role: 'user', content: clean },
     ];
 
-    const comp = await this.openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages,
-      tools,
-      tool_choice: 'auto',
-      temperature: 0.2,
-    });
+    // Inicial
+    const init = await this.createWithRetry(
+      {
+        model: 'gpt-4o-mini',
+        messages,
+        tools,
+        tool_choice: 'auto',
+        temperature: 0.2,
+      },
+      'initial',
+    );
+
+    const comp = init.res;
+    const initialMs = init.ms;
+    const initialUsage = comp?.usage;
 
     const choice = comp.choices[0];
-    const toolCall = choice.message.tool_calls?.[0];
+    const toolCalls = (choice.message.tool_calls ?? []).filter(
+      (tc) => tc.type === 'function',
+    );
 
-    if (
-      toolCall &&
-      toolCall.type === 'function' &&
-      toolCall.function?.name === 'fetchSeedExamplesFromGitHub'
-    ) {
-      const args = JSON.parse(toolCall.function.arguments || '{}');
-      const { examples, sourceUrl } = await fetchSeedExamplesFromGitHub({
-        topic: args.topic,
-        difficulty: args.difficulty,
-      });
+    const debugTools: DebugToolEvent[] = [];
 
-      await this.MessageModel.create({
-        conversationId: convId,
-        role: 'tool',
-        content: JSON.stringify({ examplesCount: examples.length, sourceUrl }),
-        metadata: { tool: 'fetchSeedExamplesFromGitHub' },
-      });
+    if (toolCalls.length > 0) {
+      // Pares statement|answer usados en este mismo turno para evitar repetir subconjuntos del seed
+      const seedPairsUsed = new Set<string>();
 
+      this.logger.log(`tool_calls=${toolCalls.length}`);
       const assistantMsg: ChatCompletionMessageParam = {
         role: 'assistant',
         content: choice.message.content ?? '',
         tool_calls: choice.message.tool_calls,
       };
 
-      const follow = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          ...messages,
-          assistantMsg,
-          {
+      const toolMessages: ChatCompletionMessageParam[] = [];
+      let lastSourceUrl: string | undefined;
+
+      for (const tc of toolCalls) {
+        const name = tc.function?.name;
+        const args = (() => {
+          try {
+            return JSON.parse(tc.function?.arguments || '{}');
+          } catch {
+            return {};
+          }
+        })();
+
+        if (name === 'fetchSeedExamplesFromGitHub') {
+          const t0 = Date.now();
+          try {
+            const prior = await this.ExerciseModel
+              .find({ conversationId: convId })
+              .select({ statement: 1, answer: 1 })
+              .lean();
+
+            const excludeStatements = prior
+              .map((e: any) => String(e.statement || '').trim())
+              .filter(Boolean);
+            const excludeAnswers = prior
+              .map((e: any) => String(e.answer || '').trim())
+              .filter(Boolean);
+            const excludePairs = Array.from(seedPairsUsed);
+
+            // Reducimos sampleCount para favorecer diversidad y no "pegarse" al seed completo
+            const { examples, sourceUrl } = await fetchSeedExamplesFromGitHub({
+              topic: args.topic,
+              difficulty: args.difficulty,
+              excludeStatements,
+              excludeAnswers,
+              excludePairs, // Evita repetir subconjuntos dentro del mismo turno
+              sampleCount: 3,
+            });
+            const ms = Date.now() - t0;
+            lastSourceUrl = sourceUrl;
+
+            // Registrar pares usados en este turno
+            for (const e of examples) {
+              const key = `${String(e.statement).trim()}|${String(e.answer).trim()}`;
+              seedPairsUsed.add(key);
+            }
+
+            await this.MessageModel.create({
+              conversationId: convId,
+              role: 'tool',
+              content: JSON.stringify({
+                examplesCount: examples.length,
+                sourceUrl,
+              }),
+              metadata: { tool: 'fetchSeedExamplesFromGitHub' },
+            });
+
+            toolMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id!,
+              content: JSON.stringify({ examples, sourceUrl }),
+            });
+
+            debugTools.push({
+              name,
+              args: { topic: args.topic, difficulty: args.difficulty },
+              status: 'ok',
+              ms,
+              summary: `examples=${examples.length}; excludePairs=${excludePairs.length}`,
+            });
+          } catch (e: any) {
+            const ms = Date.now() - t0;
+            this.logger.error(
+              `tool:fetchSeedExamplesFromGitHub error: ${e?.message ?? e}`,
+            );
+            toolMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id!,
+              content: JSON.stringify({ error: 'seed_fetch_failed' }),
+            });
+            debugTools.push({
+              name,
+              args: { topic: args.topic, difficulty: args.difficulty },
+              status: 'error',
+              ms,
+              summary: 'seed_fetch_failed',
+            });
+          }
+        } else if (name === 'validateNumericAnswer') {
+          const t0 = Date.now();
+          try {
+            const result = validateNumericAnswer(
+              args.userExpr,
+              args.expectedExpr,
+            );
+            const ms = Date.now() - t0;
+
+            await this.MessageModel.create({
+              conversationId: convId,
+              role: 'tool',
+              content: JSON.stringify(result),
+              metadata: { tool: 'validateNumericAnswer' },
+            });
+            toolMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id!,
+              content: JSON.stringify(result),
+            });
+
+            debugTools.push({
+              name,
+              args: { userExpr: args.userExpr, expectedExpr: args.expectedExpr },
+              status: 'ok',
+              ms,
+              summary: `ok=${String(result.ok)}`,
+            });
+          } catch (e: any) {
+            const ms = Date.now() - t0;
+            this.logger.error(
+              `tool:validateNumericAnswer error: ${e?.message ?? e}`,
+            );
+            toolMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id!,
+              content: JSON.stringify({ error: 'validate_failed' }),
+            });
+            debugTools.push({
+              name,
+              args: { userExpr: args.userExpr, expectedExpr: args.expectedExpr },
+              status: 'error',
+              ms,
+              summary: 'validate_failed',
+            });
+          }
+        } else {
+          toolMessages.push({
             role: 'tool',
-            tool_call_id: toolCall.id!,
-            content: JSON.stringify({ examples, sourceUrl }),
-          },
-        ],
-        temperature: 0.2,
-      });
+            tool_call_id: tc.id!,
+            content: JSON.stringify({ error: `Tool desconocida: ${name}` }),
+          });
+          debugTools.push({
+            name: String(name),
+            status: 'error',
+            summary: 'unknown_tool',
+          });
+        }
+      }
+
+      // Follow-up
+      const followComp = await this.createWithRetry(
+        {
+          model: 'gpt-4o-mini',
+          messages: [...messages, assistantMsg, ...toolMessages],
+          temperature: 0.4,
+        },
+        'followup',
+      );
+      const follow = followComp.res;
+      const followupMs = followComp.ms;
+      const followupUsage = follow?.usage;
 
       const content = follow.choices[0].message.content ?? '';
 
+      // JSON con exercises vacíos y "message" -> texto
+      try {
+        const raw = JSON.parse(content);
+        if (
+          raw &&
+          Array.isArray(raw.exercises) &&
+          raw.exercises.length === 0 &&
+          typeof raw.message === 'string'
+        ) {
+          await this.MessageModel.create({
+            conversationId: convId,
+            role: 'assistant',
+            content: raw.message,
+            metadata: { sourceUrl: lastSourceUrl },
+          });
+          return {
+            text: raw.message,
+            source: lastSourceUrl,
+            conversationId: String(convId),
+            meta: {
+              timings: { initialMs, followupMs },
+              tokens: {
+                initial: initialUsage ?? null,
+                followup: followupUsage ?? null,
+              },
+              tools: debugTools,
+              sourceUrl: lastSourceUrl,
+            },
+          };
+        }
+      } catch {
+        // continuar
+      }
+
+      // Intentar parsear ejercicios
       try {
         const parsed = GenerateExercisesResponseSchema.parse(
           JSON.parse(content),
         );
 
+        // Asegurar fuente/cita en cada ejercicio (seed vs generado)
+        const usedSourceType = lastSourceUrl
+          ? 'seed_examples_github'
+          : 'model_generated';
+        (parsed as any).exercises = (parsed as any).exercises.map((ex: any) => ({
+          ...ex,
+          source: ex.source ?? { type: usedSourceType, url: lastSourceUrl },
+        }));
+
         await this.MessageModel.create({
           conversationId: convId,
           role: 'assistant',
           content: JSON.stringify(parsed),
-          metadata: { sourceUrl },
+          metadata: { sourceUrl: lastSourceUrl },
         });
-
         for (const ex of parsed.exercises) {
           await this.ExerciseModel.create({
             conversationId: convId,
@@ -175,85 +403,136 @@ export class ChatService {
             statement: ex.statement,
             steps: ex.steps,
             answer: ex.answer,
-            sourceUrl: ex.source?.url ?? sourceUrl,
+            sourceUrl: ex.source?.url ?? lastSourceUrl,
           });
         }
-
         return {
           data: parsed,
-          source: sourceUrl,
+          source: lastSourceUrl,
           conversationId: String(convId),
+          meta: {
+            timings: { initialMs, followupMs },
+            tokens: {
+              initial: initialUsage ?? null,
+              followup: followupUsage ?? null,
+            },
+            tools: debugTools,
+            sourceUrl: lastSourceUrl,
+          },
         };
-      } catch {
+      } catch (e: any) {
+        this.logger.warn(
+          `zod-parse failed, devolviendo texto. err=${e?.message ?? e}`,
+        );
         await this.MessageModel.create({
           conversationId: convId,
           role: 'assistant',
           content,
-          metadata: { sourceUrl },
+          metadata: { sourceUrl: lastSourceUrl },
         });
-
         return {
           text: content,
-          source: sourceUrl,
+          source: lastSourceUrl,
           conversationId: String(convId),
+          meta: {
+            timings: { initialMs, followupMs },
+            tokens: {
+              initial: initialUsage ?? null,
+              followup: followupUsage ?? null,
+            },
+            tools: debugTools,
+            sourceUrl: lastSourceUrl,
+          },
         };
       }
     }
 
-    if (
-      toolCall &&
-      toolCall.type === 'function' &&
-      toolCall.function?.name === 'validateNumericAnswer'
-    ) {
-      const args = JSON.parse(toolCall.function.arguments || '{}');
-      const result = validateNumericAnswer(args.userExpr, args.expectedExpr);
+    // Sin tools: postprocesado directo con metadata
+    const raw = choice.message.content ?? '';
 
-      await this.MessageModel.create({
-        conversationId: convId,
-        role: 'tool',
-        content: JSON.stringify(result),
-        metadata: { tool: 'validateNumericAnswer' },
-      });
+    try {
+      const obj = JSON.parse(raw);
+      if (
+        obj &&
+        Array.isArray(obj.exercises) &&
+        obj.exercises.length === 0 &&
+        (typeof obj.message === 'string' ||
+          typeof obj.guidance === 'string' ||
+          typeof obj.note === 'string' ||
+          typeof obj.text === 'string')
+      ) {
+        const msgText =
+          obj.message ?? obj.guidance ?? obj.note ?? obj.text ?? String(raw);
 
-      const assistantMsg: ChatCompletionMessageParam = {
-        role: 'assistant',
-        content: choice.message.content ?? '',
-        tool_calls: choice.message.tool_calls,
-      };
+        await this.MessageModel.create({
+          conversationId: convId,
+          role: 'assistant',
+          content: msgText,
+        });
 
-      const follow = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          ...messages,
-          assistantMsg,
-          {
-            role: 'tool',
-            tool_call_id: toolCall.id!,
-            content: JSON.stringify(result),
+        return {
+          text: msgText,
+          conversationId: String(convId),
+          meta: {
+            timings: { initialMs },
+            tokens: { initial: initialUsage ?? null },
+            tools: [],
           },
-        ],
-        temperature: 0.2,
-      });
-
-      const finalText = follow.choices[0].message.content ?? '';
-
-      await this.MessageModel.create({
-        conversationId: convId,
-        role: 'assistant',
-        content: finalText,
-      });
-
-      return { text: finalText, conversationId: String(convId) };
+        };
+      }
+    } catch {
+      // continuar
     }
 
-    const finalText = choice.message.content ?? '';
+    try {
+      const parsed = GenerateExercisesResponseSchema.parse(JSON.parse(raw));
 
-    await this.MessageModel.create({
-      conversationId: convId,
-      role: 'assistant',
-      content: finalText,
-    });
+      // Sin tools: marcar como generado por modelo (sin URL)
+      (parsed as any).exercises = (parsed as any).exercises.map((ex: any) => ({
+        ...ex,
+        source: ex.source ?? { type: 'model_generated' },
+      }));
 
-    return { text: finalText, conversationId: String(convId) };
+      await this.MessageModel.create({
+        conversationId: convId,
+        role: 'assistant',
+        content: JSON.stringify(parsed),
+      });
+      for (const ex of parsed.exercises) {
+        await this.ExerciseModel.create({
+          conversationId: convId,
+          topic: ex.topic,
+          difficulty: ex.difficulty,
+          statement: ex.statement,
+          steps: ex.steps,
+          answer: ex.answer,
+          sourceUrl: ex.source?.url,
+        });
+      }
+      return {
+        data: parsed,
+        conversationId: String(convId),
+        meta: {
+          timings: { initialMs },
+          tokens: { initial: initialUsage ?? null },
+          tools: [],
+        },
+      };
+    } catch {
+      await this.MessageModel.create({
+        conversationId: convId,
+        role: 'assistant',
+        content: raw,
+      });
+      return {
+        text: raw,
+        conversationId: String(convId),
+        meta: {
+          timings: { initialMs },
+          tokens: { initial: initialUsage ?? null },
+          tools: [],
+        },
+      };
+    }
   }
 }
