@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const ExerciseSchema = z.object({
   id: z.string().optional(),
@@ -12,7 +12,7 @@ export const ExerciseSchema = z.object({
 
 export const MessageItemSchema = z.object({
   id: z.string(),
-  role: z.enum(['user', 'assistant', 'tool', 'system']),
+  role: z.enum(["user", "assistant", "tool", "system"]),
   content: z.string(),
   createdAt: z.string().optional(),
 });
@@ -38,13 +38,20 @@ export const ConversationDetailSchema = z.object({
 const DebugToolEventSchema = z.object({
   name: z.string(),
   args: z.record(z.any()).optional(),
-  status: z.enum(['ok', 'error']),
+  status: z.enum(["ok", "error"]),
   ms: z.number().optional(),
   summary: z.string().optional(),
 });
 const ChatMetaSchema = z.object({
-  timings: z.object({ initialMs: z.number().optional(), followupMs: z.number().optional() }).optional(),
-  tokens: z.object({ initial: z.any().optional(), followup: z.any().optional() }).optional(),
+  timings: z
+    .object({
+      initialMs: z.number().optional(),
+      followupMs: z.number().optional(),
+    })
+    .optional(),
+  tokens: z
+    .object({ initial: z.any().optional(), followup: z.any().optional() })
+    .optional(),
   tools: z.array(DebugToolEventSchema).optional(),
   sourceUrl: z.string().optional(),
 });
@@ -65,4 +72,7 @@ export const ChatDataResponseSchema = z.object({
   meta: ChatMetaSchema.optional(),
 });
 
-export const ChatResponseSchema = z.union([ChatTextResponseSchema, ChatDataResponseSchema]);
+export const ChatResponseSchema = z.union([
+  ChatTextResponseSchema,
+  ChatDataResponseSchema,
+]);

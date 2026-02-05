@@ -10,6 +10,9 @@ export class Conversation {
 
   @Prop({ type: Date }) createdAt?: Date;
   @Prop({ type: Date }) updatedAt?: Date;
+
+  @Prop() lastMessagePreview?: string;
+  @Prop() lastMessageAt?: Date;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

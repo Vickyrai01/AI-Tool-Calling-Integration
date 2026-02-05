@@ -1,5 +1,5 @@
-'use client';
-import { useEffect, useRef, useState } from 'react';
+"use client";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   onPrompt: (text: string) => void;
@@ -14,21 +14,42 @@ export default function QuickActionsMenu({ onPrompt }: Props) {
       if (!ref.current) return;
       if (!ref.current.contains(e.target as Node)) setOpen(false);
     }
-    document.addEventListener('click', onDocClick);
-    return () => document.removeEventListener('click', onDocClick);
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
   }, []);
 
   const difficulty = [
-    { label: 'Baja (1)', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad baja' },
-    { label: 'Media (1)', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad media' },
-    { label: 'Alta (1)', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad alta' },
-    { label: 'Difíciles (2)', text: 'Generame 2 ejercicios de ecuaciones_lineales, dificultad alta' },
+    {
+      label: "Baja (1)",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad baja",
+    },
+    {
+      label: "Media (1)",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad media",
+    },
+    {
+      label: "Alta (1)",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad alta",
+    },
+    {
+      label: "Difíciles (2)",
+      text: "Generame 2 ejercicios de ecuaciones_lineales, dificultad alta",
+    },
   ];
 
   const templates = [
-    { label: 'Paralela', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad media donde me pidan encontrar la pendiente de una recta paralela' },
-    { label: 'Perpendicular', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad media donde me pidan encontrar la pendiente de una recta perpendicular' },
-    { label: 'Intersección', text: 'Generame 1 ejercicio de ecuaciones_lineales, dificultad alta donde me pidan hallar la intersección de dos rectas' },
+    {
+      label: "Paralela",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad media donde me pidan encontrar la pendiente de una recta paralela",
+    },
+    {
+      label: "Perpendicular",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad media donde me pidan encontrar la pendiente de una recta perpendicular",
+    },
+    {
+      label: "Intersección",
+      text: "Generame 1 ejercicio de ecuaciones_lineales, dificultad alta donde me pidan hallar la intersección de dos rectas",
+    },
   ];
 
   function run(text: string) {
@@ -53,7 +74,9 @@ export default function QuickActionsMenu({ onPrompt }: Props) {
           role="menu"
           className="absolute right-0 mt-2 w-64 rounded-md border border-border bg-white shadow-lg z-30 p-2"
         >
-          <div className="px-2 py-1 text-xs text-muted uppercase">Dificultad</div>
+          <div className="px-2 py-1 text-xs text-muted uppercase">
+            Dificultad
+          </div>
           <div className="flex flex-col gap-1 mb-2">
             {difficulty.map((d) => (
               <button
@@ -66,7 +89,9 @@ export default function QuickActionsMenu({ onPrompt }: Props) {
             ))}
           </div>
 
-          <div className="px-2 py-1 text-xs text-muted uppercase">Plantillas</div>
+          <div className="px-2 py-1 text-xs text-muted uppercase">
+            Plantillas
+          </div>
           <div className="flex flex-col gap-1">
             {templates.map((t) => (
               <button

@@ -18,7 +18,7 @@ type Params = {
   timeoutMs?: number;
   excludeStatements?: string[];
   excludeAnswers?: string[];
-  excludePairs?: string[];   // NUEVO: excluir "statement|answer" ya enviados en este turno
+  excludePairs?: string[]; // NUEVO: excluir "statement|answer" ya enviados en este turno
   sampleCount?: number;
 };
 
@@ -39,7 +39,8 @@ export async function fetchSeedExamplesFromGitHub(params: Params = {}) {
   const owner = params.owner ?? process.env.SEED_OWNER!;
   const repo = params.repo ?? process.env.SEED_REPO!;
   const path = params.path ?? process.env.SEED_PATH!;
-  const { topic, difficulty, excludeStatements, excludeAnswers, excludePairs } = params;
+  const { topic, difficulty, excludeStatements, excludeAnswers, excludePairs } =
+    params;
   const timeoutMs = params.timeoutMs ?? 10_000;
 
   if (!owner || !repo || !path) {
@@ -56,8 +57,10 @@ export async function fetchSeedExamplesFromGitHub(params: Params = {}) {
       headers: { Accept: 'application/vnd.github.v3.raw' },
     });
 
-    if (res.status === 403 || res.status === 429) throw new Error(`GitHub rate limit: ${res.status}`);
-    if (!res.ok) throw new Error(`GitHub error: ${res.status} ${res.statusText}`);
+    if (res.status === 403 || res.status === 429)
+      throw new Error(`GitHub rate limit: ${res.status}`);
+    if (!res.ok)
+      throw new Error(`GitHub error: ${res.status} ${res.statusText}`);
 
     const json = await res.json();
     const parsed = SeedExamplesSchema.safeParse(json);

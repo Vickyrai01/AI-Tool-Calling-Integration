@@ -26,6 +26,26 @@ type DebugToolEvent = {
   summary?: string;
 };
 
+// Helper: convertir contenido (posible JSON) en preview legible
+function buildPreview(content: string): string {
+  const raw = String(content || '').trim();
+  if (!raw) return '';
+  try {
+    const obj = JSON.parse(raw);
+    if (obj && Array.isArray(obj.exercises)) {
+      const n = obj.exercises.length;
+      const first = obj.exercises?.[0] || {};
+      const topic = first?.topic ? String(first.topic) : '';
+      const diff = first?.difficulty ? String(first.difficulty) : '';
+      const parts = [`${n} ejercicio${n > 1 ? 's' : ''}`];
+      if (topic) parts.push(topic);
+      if (diff) parts.push(diff);
+      return parts.join(' · ').slice(0, 120);
+    }
+  } catch {}
+  return raw.replace(/\s+/g, ' ').slice(0, 120);
+}
+
 @Injectable()
 export class ChatService {
   private readonly openai: OpenAI;
@@ -82,25 +102,47 @@ export class ChatService {
     }
   }
 
-  private async ensureConversation(conversationId?: string) {
+  private async ensureConversation(conversationId?: string, userId?: string) {
     if (conversationId) return new Types.ObjectId(conversationId);
     const created = await this.ConversationModel.create({
       title: 'Nueva conversación',
-    });
+      userId,
+      lastMessagePreview: '',
+      lastMessageAt: new Date(),
+    } as any);
     return new Types.ObjectId(created._id);
   }
 
-  async handleMessage(text: string, conversationId?: string) {
+  async handleMessage(text: string, conversationId?: string, userId?: string) {
     const clean = String(text ?? '').trim();
     if (!clean || clean.length > 2000) return { error: 'Input inválido' };
 
-    const convId = await this.ensureConversation(conversationId);
+    const convId = await this.ensureConversation(conversationId, userId);
 
-    await this.MessageModel.create({
+    const userMsg = await this.MessageModel.create({
       conversationId: convId,
       role: 'user',
       content: clean,
     });
+
+    await this.ConversationModel.updateOne(
+      {
+        _id: convId,
+        $or: [{ title: { $exists: false } }, { title: 'Nueva conversación' }],
+      },
+      { $set: { title: clean.slice(0, 60), userId } },
+    );
+
+    await this.ConversationModel.updateOne(
+      { _id: convId },
+      {
+        $set: {
+          lastMessagePreview: buildPreview(clean),
+          lastMessageAt: (userMsg as any)?.createdAt ?? new Date(),
+          userId,
+        },
+      },
+    );
 
     const tools: ChatCompletionTool[] = [
       {
@@ -170,7 +212,6 @@ export class ChatService {
       // Pares statement|answer usados en este mismo turno para evitar repetir subconjuntos del seed
       const seedPairsUsed = new Set<string>();
 
-      this.logger.log(`tool_calls=${toolCalls.length}`);
       const assistantMsg: ChatCompletionMessageParam = {
         role: 'assistant',
         content: choice.message.content ?? '',
@@ -193,8 +234,9 @@ export class ChatService {
         if (name === 'fetchSeedExamplesFromGitHub') {
           const t0 = Date.now();
           try {
-            const prior = await this.ExerciseModel
-              .find({ conversationId: convId })
+            const prior = await this.ExerciseModel.find({
+              conversationId: convId,
+            })
               .select({ statement: 1, answer: 1 })
               .lean();
 
@@ -288,7 +330,10 @@ export class ChatService {
 
             debugTools.push({
               name,
-              args: { userExpr: args.userExpr, expectedExpr: args.expectedExpr },
+              args: {
+                userExpr: args.userExpr,
+                expectedExpr: args.expectedExpr,
+              },
               status: 'ok',
               ms,
               summary: `ok=${String(result.ok)}`,
@@ -305,7 +350,10 @@ export class ChatService {
             });
             debugTools.push({
               name,
-              args: { userExpr: args.userExpr, expectedExpr: args.expectedExpr },
+              args: {
+                userExpr: args.userExpr,
+                expectedExpr: args.expectedExpr,
+              },
               status: 'error',
               ms,
               summary: 'validate_failed',
@@ -340,6 +388,12 @@ export class ChatService {
 
       const content = follow.choices[0].message.content ?? '';
 
+      // Actualizar preview con la respuesta del asistente (legible)
+      await this.ConversationModel.updateOne(
+        { _id: convId },
+        { $set: { lastMessagePreview: buildPreview(content) } },
+      );
+
       // JSON con exercises vacíos y "message" -> texto
       try {
         const raw = JSON.parse(content);
@@ -349,12 +403,25 @@ export class ChatService {
           raw.exercises.length === 0 &&
           typeof raw.message === 'string'
         ) {
-          await this.MessageModel.create({
+          const assistantTextMsg = await this.MessageModel.create({
             conversationId: convId,
             role: 'assistant',
             content: raw.message,
             metadata: { sourceUrl: lastSourceUrl },
           });
+
+          // Actualizar última actividad con el mensaje del asistente (texto)
+          await this.ConversationModel.updateOne(
+            { _id: convId },
+            {
+              $set: {
+                lastMessagePreview: buildPreview(raw.message),
+                lastMessageAt:
+                  (assistantTextMsg as any)?.createdAt ?? new Date(),
+              },
+            },
+          );
+
           return {
             text: raw.message,
             source: lastSourceUrl,
@@ -384,17 +451,31 @@ export class ChatService {
         const usedSourceType = lastSourceUrl
           ? 'seed_examples_github'
           : 'model_generated';
-        (parsed as any).exercises = (parsed as any).exercises.map((ex: any) => ({
-          ...ex,
-          source: ex.source ?? { type: usedSourceType, url: lastSourceUrl },
-        }));
+        (parsed as any).exercises = (parsed as any).exercises.map(
+          (ex: any) => ({
+            ...ex,
+            source: ex.source ?? { type: usedSourceType, url: lastSourceUrl },
+          }),
+        );
 
-        await this.MessageModel.create({
+        const assistantJsonMsg = await this.MessageModel.create({
           conversationId: convId,
           role: 'assistant',
           content: JSON.stringify(parsed),
           metadata: { sourceUrl: lastSourceUrl },
         });
+
+        // Actualizar última actividad con el mensaje del asistente (JSON)
+        await this.ConversationModel.updateOne(
+          { _id: convId },
+          {
+            $set: {
+              lastMessagePreview: buildPreview(JSON.stringify(parsed)),
+              lastMessageAt: (assistantJsonMsg as any)?.createdAt ?? new Date(),
+            },
+          },
+        );
+
         for (const ex of parsed.exercises) {
           await this.ExerciseModel.create({
             conversationId: convId,
@@ -424,12 +505,26 @@ export class ChatService {
         this.logger.warn(
           `zod-parse failed, devolviendo texto. err=${e?.message ?? e}`,
         );
-        await this.MessageModel.create({
+
+        const assistantFallbackMsg = await this.MessageModel.create({
           conversationId: convId,
           role: 'assistant',
           content,
           metadata: { sourceUrl: lastSourceUrl },
         });
+
+        // Actualizar última actividad con el mensaje del asistente (texto crudo)
+        await this.ConversationModel.updateOne(
+          { _id: convId },
+          {
+            $set: {
+              lastMessagePreview: buildPreview(content),
+              lastMessageAt:
+                (assistantFallbackMsg as any)?.createdAt ?? new Date(),
+            },
+          },
+        );
+
         return {
           text: content,
           source: lastSourceUrl,
@@ -447,8 +542,14 @@ export class ChatService {
       }
     }
 
-    // Sin tools: postprocesado directo con metadata
+    // Sin tools
     const raw = choice.message.content ?? '';
+
+    // Actualizar preview con la respuesta del asistente
+    await this.ConversationModel.updateOne(
+      { _id: convId },
+      { $set: { lastMessagePreview: buildPreview(raw) } },
+    );
 
     try {
       const obj = JSON.parse(raw);
@@ -464,11 +565,23 @@ export class ChatService {
         const msgText =
           obj.message ?? obj.guidance ?? obj.note ?? obj.text ?? String(raw);
 
-        await this.MessageModel.create({
+        const assistantNoToolMsg = await this.MessageModel.create({
           conversationId: convId,
           role: 'assistant',
           content: msgText,
         });
+
+        // Actualizar última actividad
+        await this.ConversationModel.updateOne(
+          { _id: convId },
+          {
+            $set: {
+              lastMessagePreview: buildPreview(msgText),
+              lastMessageAt:
+                (assistantNoToolMsg as any)?.createdAt ?? new Date(),
+            },
+          },
+        );
 
         return {
           text: msgText,
@@ -493,11 +606,24 @@ export class ChatService {
         source: ex.source ?? { type: 'model_generated' },
       }));
 
-      await this.MessageModel.create({
+      const assistantNoToolJsonMsg = await this.MessageModel.create({
         conversationId: convId,
         role: 'assistant',
         content: JSON.stringify(parsed),
       });
+
+      // Actualizar última actividad
+      await this.ConversationModel.updateOne(
+        { _id: convId },
+        {
+          $set: {
+            lastMessagePreview: buildPreview(JSON.stringify(parsed)),
+            lastMessageAt:
+              (assistantNoToolJsonMsg as any)?.createdAt ?? new Date(),
+          },
+        },
+      );
+
       for (const ex of parsed.exercises) {
         await this.ExerciseModel.create({
           conversationId: convId,
@@ -519,11 +645,23 @@ export class ChatService {
         },
       };
     } catch {
-      await this.MessageModel.create({
+      const assistantRawMsg = await this.MessageModel.create({
         conversationId: convId,
         role: 'assistant',
         content: raw,
       });
+
+      // Actualizar última actividad
+      await this.ConversationModel.updateOne(
+        { _id: convId },
+        {
+          $set: {
+            lastMessagePreview: buildPreview(raw),
+            lastMessageAt: (assistantRawMsg as any)?.createdAt ?? new Date(),
+          },
+        },
+      );
+
       return {
         text: raw,
         conversationId: String(convId),

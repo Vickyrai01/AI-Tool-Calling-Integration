@@ -1,4 +1,4 @@
-export type Role = 'user' | 'assistant' | 'tool' | 'system';
+export type Role = "user" | "assistant" | "tool" | "system";
 
 export type Exercise = {
   id: string;
@@ -38,7 +38,7 @@ export type ConversationDetail = {
 export type DebugToolEvent = {
   name: string;
   args?: Record<string, any>;
-  status: 'ok' | 'error';
+  status: "ok" | "error";
   ms?: number;
   summary?: string;
 };
@@ -55,4 +55,9 @@ export type ChatMeta = {
 
 export type ChatResponse =
   | { text: string; conversationId: string; source?: string; meta?: ChatMeta }
-  | { data: { exercises: Exercise[] }; conversationId: string; source?: string; meta?: ChatMeta };
+  | {
+      data: { exercises: Exercise[] };
+      conversationId: string;
+      source?: string;
+      meta?: ChatMeta;
+    };
