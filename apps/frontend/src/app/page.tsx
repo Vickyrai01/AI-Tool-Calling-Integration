@@ -1,50 +1,22 @@
-"use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import ConversationsList from "@/components/Sidebar/ConversationsList";
-import ConversationsDrawer from "@/components/Sidebar/ConversationsDrawer";
-import MessageBubble from "@/components/Chat/MessageBubble";
-import ExerciseCard from "@/components/Chat/ExerciseCard";
-import ChatInput from "@/components/Chat/ChatInput";
-import ErrorBanner from "@/components/UI/ErrorBanner";
-import DebugSidebar from "@/components/Debug/DebugSidebar";
-import DebugSheet from "@/components/Debug/DebugSheet";
-import AppHeader from "@/components/Header/AppHeader";
-import ScrollToBottom from "@/components/UI/ScrollToBottom";
-import type {
-  Exercise,
-  ConversationDetail,
-  ChatResponse,
-  ChatMeta,
-} from "@/lib/types";
-import { getConversation, postChat } from "@/lib/api";
-
-function parseExercisesJson(content: string): { exercises: Exercise[] } | null {
-  try {
-    const obj = JSON.parse(content);
-    if (obj && Array.isArray(obj.exercises) && obj.exercises.length > 0) {
-      const exs = obj.exercises.map((e: any) => ({
-        id: String(e.id ?? crypto.randomUUID()),
-        topic: String(e.topic ?? ""),
-        difficulty: String(e.difficulty ?? ""),
-        statement: String(e.statement ?? ""),
-        steps: Array.isArray(e.steps) ? e.steps.map(String) : [],
-        answer: String(e.answer ?? ""),
-        sourceUrl: e.source?.url ?? e.sourceUrl,
-      }));
-      return { exercises: exs };
-    }
-  } catch {}
-  return null;
-}
+'use client';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import ConversationsList from '@/components/Sidebar/ConversationsList';
+import ConversationsDrawer from '@/components/Sidebar/ConversationsDrawer';
+import MessageBubble from '@/components/Chat/MessageBubble';
+import ExerciseCard from '@/components/Chat/ExerciseCard';
+import ChatInput from '@/components/Chat/ChatInput';
+import ErrorBanner from '@/components/UI/ErrorBanner';
+import DebugSidebar from '@/components/Debug/DebugSidebar';
+import DebugSheet from '@/components/Debug/DebugSheet';
+import AppHeader from '@/components/Header/AppHeader';
+import ScrollToBottom from '@/components/UI/ScrollToBottom';
+import WelcomeScreen from '@/components/Welcome/WelcomeScreen';
+import type { Exercise, ConversationDetail, ChatResponse, ChatMeta } from '@/lib/types';
+import { getConversation, postChat } from '@/lib/api';
 
 type ChatItem =
-  | {
-      role: "user" | "assistant";
-      kind: "text";
-      text: string;
-      createdAt?: string;
-    }
-  | { role: "assistant"; kind: "exercises"; exercises: Exercise[] };
+  | { role: 'user' | 'assistant'; kind: 'text'; text: string; createdAt?: string }
+  | { role: 'assistant'; kind: 'exercises'; exercises: Exercise[]; createdAt?: string; messageId?: string };
 
 export default function ChatPage() {
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -54,13 +26,13 @@ export default function ChatPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [debugOn, setDebugOn] = useState(false);
   const [lastMeta, setLastMeta] = useState<ChatMeta | undefined>(undefined);
-  const [drawerOpen, setDrawerOpen] = useState(false); // NUEVO: conversaciones móvil
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    setDebugOn(localStorage.getItem("debugOn") === "1");
+    setDebugOn(localStorage.getItem('debugOn') === '1');
   }, []);
   useEffect(() => {
-    localStorage.setItem("debugOn", debugOn ? "1" : "0");
+    localStorage.setItem('debugOn', debugOn ? '1' : '0');
   }, [debugOn]);
 
   const loadConversation = useCallback(async (id: string) => {
@@ -70,50 +42,45 @@ export default function ChatPage() {
     setLastMeta(undefined);
     try {
       const data: ConversationDetail = await getConversation(id);
-      const msgItems: ChatItem[] = [];
-      const messages = Array.isArray(data?.messages) ? data.messages : [];
 
+      const timeline: ChatItem[] = [];
+
+      const messages = Array.isArray(data?.messages) ? data.messages : [];
       for (const m of messages) {
-        if (m.role !== "user" && m.role !== "assistant") continue;
-        const text = String(m.content ?? "");
-        if (m.role === "assistant") {
-          const parsed = parseExercisesJson(text);
-          if (parsed) continue;
-        }
-        msgItems.push({
-          role: m.role,
-          kind: "text",
-          text,
-          createdAt: m.createdAt,
-        });
+        if (m.role !== 'user' && m.role !== 'assistant') continue;
+        const text = String(m.content ?? '');
+        const looksJson = text.trim().startsWith('{') || text.trim().startsWith('[');
+        if (m.role === 'assistant' && looksJson) continue;
+        timeline.push({ role: m.role, kind: 'text', text, createdAt: m.createdAt });
       }
-      if (Array.isArray(data?.exercises) && data.exercises.length > 0) {
-        msgItems.push({
-          role: "assistant",
-          kind: "exercises",
-          exercises: data.exercises.map((e: any) => ({
-            id: String(e.id ?? e._id ?? crypto.randomUUID()),
-            topic: String(e.topic ?? ""),
-            difficulty: String(e.difficulty ?? ""),
-            statement: String(e.statement ?? ""),
-            steps: Array.isArray(e.steps) ? e.steps.map(String) : [],
-            answer: String(e.answer ?? ""),
-            sourceUrl: e.sourceUrl,
-          })),
-        });
+
+      const exs = Array.isArray(data?.exercises) ? data.exercises : [];
+      const groups = new Map<string, Exercise[]>();
+      for (const e of exs) {
+        const key = e.messageId || `ts:${e.createdAt}`;
+        groups.set(key, [...(groups.get(key) ?? []), e]);
       }
-      setItems(msgItems);
+      for (const [key, list] of groups.entries()) {
+        const createdAt = list[0]?.createdAt;
+        timeline.push({ role: 'assistant', kind: 'exercises', exercises: list, createdAt, messageId: key });
+      }
+
+      timeline.sort((a, b) => {
+        const ta = new Date(a.createdAt ?? 0).getTime();
+        const tb = new Date(b.createdAt ?? 0).getTime();
+        return ta - tb;
+      });
+
+      setItems(timeline);
     } catch {
-      setError("No se pudo cargar la conversación");
+      setError('No se pudo cargar la conversación');
     }
   }, []);
 
   async function handleSend(text: string) {
     setError(null);
-    setItems((m) => [
-      ...m,
-      { role: "user", kind: "text", text, createdAt: new Date().toISOString() },
-    ]);
+    const now = new Date().toISOString();
+    setItems((m) => [...m, { role: 'user', kind: 'text', text, createdAt: now }]);
     setLoading(true);
     try {
       const res: ChatResponse = await postChat({
@@ -128,40 +95,29 @@ export default function ChatPage() {
         setSelectedConvId(res.conversationId);
         setRefreshKey((k) => k + 1);
       }
-      if ("data" in res && res.data?.exercises) {
+
+      if ('data' in res && res.data?.exercises) {
         const exs: Exercise[] = res.data.exercises.map((e) => ({
           id: e.id ?? crypto.randomUUID(),
-          ...e,
+          topic: e.topic,
+          difficulty: e.difficulty,
+          statement: e.statement,
+          steps: Array.isArray(e.steps) ? e.steps : [],
+          answer: e.answer,
+          sourceUrl: e.source?.url ?? e.sourceUrl,
+          createdAt: now,
         }));
-        setItems((m) => [
-          ...m,
-          { role: "assistant", kind: "exercises", exercises: exs },
-        ]);
-      } else if ("text" in res) {
-        setItems((m) => [
-          ...m,
-          {
-            role: "assistant",
-            kind: "text",
-            text: String(res.text),
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+        setItems((m) => [...m, { role: 'assistant', kind: 'exercises', exercises: exs, createdAt: now }]);
+      } else if ('text' in res) {
+        setItems((m) => [...m, { role: 'assistant', kind: 'text', text: String(res.text), createdAt: now }]);
       } else {
         setItems((m) => [
           ...m,
-          {
-            role: "assistant",
-            kind: "text",
-            text: JSON.stringify(res, null, 2),
-            createdAt: new Date().toISOString(),
-          },
+          { role: 'assistant', kind: 'text', text: JSON.stringify(res, null, 2), createdAt: now },
         ]);
       }
     } catch (e: any) {
-      const msg = e?.message
-        ? String(e.message)
-        : "Error al contactar el backend";
+      const msg = e?.message ? String(e.message) : 'Error al contactar el backend';
       setError(msg);
     } finally {
       setLoading(false);
@@ -175,14 +131,18 @@ export default function ChatPage() {
     const text = `Generame 1 ejercicio de ${ex.topic}, dificultad ${ex.difficulty} similar al anterior pero con números diferentes`;
     handleSend(text);
   }
+  // “Nueva conversación” crea un borrador local para habilitar el input y ocultar la bienvenida
   function handleNewConversation() {
-    setSelectedConvId(null);
+    const draftId = `draft-${crypto.randomUUID()}`;
+    setSelectedConvId(draftId);
     setItems([]);
     setLastMeta(undefined);
   }
 
   useEffect(() => {
-    if (selectedConvId) loadConversation(selectedConvId);
+    if (selectedConvId && !selectedConvId.startsWith('draft-')) {
+      loadConversation(selectedConvId);
+    }
   }, [refreshKey, selectedConvId, loadConversation]);
 
   const sidebar = useMemo(
@@ -197,6 +157,8 @@ export default function ChatPage() {
     [selectedConvId, loadConversation, refreshKey],
   );
 
+  const showWelcome = !selectedConvId && items.length === 0;
+
   return (
     <div className="flex h-screen">
       {sidebar}
@@ -210,71 +172,62 @@ export default function ChatPage() {
           onOpenConversations={() => setDrawerOpen(true)}
         />
 
-        {error && (
-          <ErrorBanner message={error} onClose={() => setError(null)} />
-        )}
+        {error && <ErrorBanner message={error} onClose={() => setError(null)} />}
 
         <div className="flex flex-1 overflow-hidden">
-          <section
-            id="chat-scroll" className="flex-1 overflow-y-auto px-3 lg:px-4 pb-4 pt-6"
-          >
-            <div className="max-w-full lg:max-w-2xl mx-auto w-full flex flex-col gap-3">
-              {items.map((it, i) => {
-                if (it.kind === "text") {
+          {showWelcome ? (
+            <div className="flex-1 overflow-y-auto px-3 lg:px-4 pb-4 pt-6">
+              <WelcomeScreen
+                onQuickAction={(t) => handleQuickAction(t)}
+                onStart={handleNewConversation} // NUEVO: CTA móvil desde la bienvenida
+              />
+            </div>
+          ) : (
+            <section id="chat-scroll" className="flex-1 overflow-y-auto px-3 lg:px-4 pb-4 pt-6">
+              <div className="max-w-full lg:max-w-2xl mx-auto w-full flex flex-col gap-3">
+                {items.map((it, i) => {
+                  if (it.kind === 'text') {
+                    return (
+                      <MessageBubble key={i} role={it.role} createdAt={it.createdAt}>
+                        <b>{it.role === 'user' ? 'Usuario' : 'Asistente'}:</b> {it.text}
+                      </MessageBubble>
+                    );
+                  }
                   return (
-                    <MessageBubble
-                      key={i}
-                      role={it.role}
-                      createdAt={it.createdAt}
-                    >
-                      {it.text}
-                    </MessageBubble>
+                    <div key={i} className="grid gap-3">
+                      {it.exercises.map((ex) => (
+                        <ExerciseCard key={ex.id} ex={ex} onRegenerate={handleRegenerate} />
+                      ))}
+                    </div>
                   );
-                }
-                return (
-                  <div key={i} className="grid gap-3">
-                    {it.exercises.map((ex) => (
-                      <ExerciseCard
-                        key={ex.id}
-                        ex={ex}
-                        onRegenerate={handleRegenerate}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
-              {loading && <div className="text-muted">Pensando…</div>}
-            </div>
-          </section>
-
-          {/* Debug: sidebar en desktop, bottom sheet en mobile */}
-          {debugOn && (
-            <div className="hidden lg:block">
-              <DebugSidebar meta={lastMeta} />
-            </div>
+                })}
+                {loading && <div className="text-muted">Pensando…</div>}
+              </div>
+            </section>
           )}
+
+          {debugOn && <div className="hidden lg:block"><DebugSidebar meta={lastMeta} /></div>}
         </div>
 
-        {/* Footer con placeholder del ancho del debug en desktop */}
+        {/* Footer: ocultar el input cuando mostramos la bienvenida */}
         <footer className="sticky bottom-0 z-20 border-t border-border bg-white">
           <div className="flex">
             <div className="flex-1 px-3 lg:px-4">
               <div className="max-w-full lg:max-w-2xl mx-auto w-full">
-                <ChatInput
-                  onSend={handleSend}
-                  loading={loading}
-                  maxLength={800}
-                />
+                {showWelcome ? (
+                  <div className="text-xs text-muted py-3 text-center">
+                    Elegí un atajo arriba o usa “Nueva conversación” para empezar.
+                  </div>
+                ) : (
+                  <ChatInput onSend={handleSend} loading={loading} maxLength={800} />
+                )}
               </div>
             </div>
-            {debugOn && (
-              <div className="hidden lg:block w-96 border-l border-transparent" />
-            )}
+            {debugOn && <div className="hidden lg:block w-96 border-l border-transparent" />}
           </div>
         </footer>
       </main>
 
-      {/* Drawer móvil de conversaciones */}
       <ConversationsDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -282,15 +235,8 @@ export default function ChatPage() {
         onSelect={(id) => loadConversation(id)}
         refreshKey={refreshKey}
       />
-
-      {/* Debug bottom sheet en móvil */}
-      <DebugSheet
-        open={debugOn && !!lastMeta}
-        onClose={() => setDebugOn(false)}
-        meta={lastMeta}
-      />
-
-      <ScrollToBottom scrollContainerSelector="#chat-scroll" />
+      <DebugSheet open={debugOn} onClose={() => setDebugOn(false)} meta={lastMeta} />
+      {!showWelcome && <ScrollToBottom scrollContainerSelector="#chat-scroll" />}
     </div>
   );
 }

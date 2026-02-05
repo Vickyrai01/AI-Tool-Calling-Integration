@@ -8,6 +8,8 @@ export type Exercise = {
   steps: string[];
   answer: string;
   sourceUrl?: string;
+  createdAt?: string;
+  messageId?: string;
 };
 
 export type ConversationListItem = {
@@ -19,20 +21,20 @@ export type ConversationListItem = {
   lastMessagePreview?: string;
 };
 
-export type MessageItem = {
-  id: string;
-  role: Role;
-  content: string;
-  createdAt?: string;
-};
-
 export type ConversationDetail = {
   id: string;
   title: string;
   createdAt?: string;
   updatedAt?: string;
-  messages: MessageItem[];
+  messages: { id: string; role: 'user' | 'assistant'; content: string; createdAt?: string }[];
   exercises: Exercise[];
+};
+
+export type MessageItem = {
+  id: string;
+  role: Role;
+  content: string;
+  createdAt?: string;
 };
 
 export type DebugToolEvent = {

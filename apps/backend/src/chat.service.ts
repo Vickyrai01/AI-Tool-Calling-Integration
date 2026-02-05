@@ -447,7 +447,6 @@ export class ChatService {
           JSON.parse(content),
         );
 
-        // Asegurar fuente/cita en cada ejercicio (seed vs generado)
         const usedSourceType = lastSourceUrl
           ? 'seed_examples_github'
           : 'model_generated';
@@ -465,28 +464,35 @@ export class ChatService {
           metadata: { sourceUrl: lastSourceUrl },
         });
 
-        // Actualizar última actividad con el mensaje del asistente (JSON)
+        // Actualizar preview + última actividad
         await this.ConversationModel.updateOne(
           { _id: convId },
           {
             $set: {
               lastMessagePreview: buildPreview(JSON.stringify(parsed)),
               lastMessageAt: (assistantJsonMsg as any)?.createdAt ?? new Date(),
+              userId,
             },
           },
         );
 
+        // Persistir ejercicios con messageId y el mismo createdAt del mensaje del asistente
         for (const ex of parsed.exercises) {
           await this.ExerciseModel.create({
             conversationId: convId,
+            messageId: assistantJsonMsg._id,
             topic: ex.topic,
             difficulty: ex.difficulty,
             statement: ex.statement,
             steps: ex.steps,
             answer: ex.answer,
             sourceUrl: ex.source?.url ?? lastSourceUrl,
-          });
+            // forzar mismo createdAt para ordenar intercalado
+            // @ts-ignore (Mongoose respetará si se provee createdAt)
+            createdAt: (assistantJsonMsg as any)?.createdAt ?? new Date(),
+          } as any);
         }
+
         return {
           data: parsed,
           source: lastSourceUrl,
@@ -502,9 +508,7 @@ export class ChatService {
           },
         };
       } catch (e: any) {
-        this.logger.warn(
-          `zod-parse failed, devolviendo texto. err=${e?.message ?? e}`,
-        );
+        this.logger.warn('Ocurrio un problema en el back');
 
         const assistantFallbackMsg = await this.MessageModel.create({
           conversationId: convId,

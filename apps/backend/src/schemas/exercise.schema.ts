@@ -8,6 +8,9 @@ export class Exercise {
   @Prop({ type: Types.ObjectId, ref: 'Conversation', required: true })
   conversationId!: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'Message', required: false })
+  messageId?: Types.ObjectId;
+
   @Prop({ required: true }) topic!: string;
   @Prop({ required: true }) difficulty!: string;
   @Prop({ required: true }) statement!: string;

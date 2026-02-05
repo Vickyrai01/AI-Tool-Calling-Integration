@@ -198,7 +198,7 @@ export default function AppHeader({
           {/* Centro: título claro, no sobrecargado */}
           <div className="text-center">
             <div className="text-sm lg:text-base leading-tight font-semibold">
-              Bot de ejercicios
+              ChatBot ingreso UTN FRBA
             </div>
             <div className="text-xs text-muted -mt-0.5">
               Ecuaciones lineales
