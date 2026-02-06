@@ -13,13 +13,16 @@ export default function ScrollToBottom({
       scrollContainerSelector,
     ) as HTMLElement | null;
     if (!el) return;
+    const scrollEl = el;
     function onScroll() {
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      const nearBottom =
+        scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight <
+        120;
       setVisible(!nearBottom);
     }
     onScroll();
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
+    scrollEl.addEventListener("scroll", onScroll);
+    return () => scrollEl.removeEventListener("scroll", onScroll);
   }, [scrollContainerSelector]);
 
   if (!visible) return null;
