@@ -91,18 +91,6 @@ Backend (NestJS, Render/Railway)
 
 ---
 
-### Regla Anti-“Wrapper de ChatGPT” (cómo se cumple)
-- El LLM decide tools según contexto (tool_choice: 'auto').
-- Outputs estructurados en JSON validados con Zod (GenerateExercisesResponseSchema).
-- Cita fuentes al usar la API externa (sourceUrl GitHub en cada ejercicio y meta en debug).
-- Memoria/historial persistente en Mongo (conversación, mensajes, ejercicios).
-- Lógica de negocio
-  - Excluir pares repetidos del seed por turno.
-  - Vincular ejercicios al mensaje del asistente (messageId) para intercalado cronológico consistente.
-  - lastMessageAt actualizado para ordenar la sidebar por “Última actividad”.
-
----
-
 ### User Stories 
 
 1) Como alumno  
@@ -165,23 +153,6 @@ Requisitos:
 4) Levantar frontend (Next.js)
 - `pnpm -F @app/frontend dev`
 - Visitar `http://localhost:3000`
-
-### Variables de entorno (ejemplo)
-
-```env
-# FRONTEND (Next.js)
-NEXT_PUBLIC_API_URL=http://localhost:3001
-
-# BACKEND (NestJS)
-OPENAI_API_KEY=sk-...
-MONGODB_URI=mongodb+srv://user:pass@cluster/dbname
-FRONTEND_ORIGIN=http://localhost:3000
-
-# GitHub dataset semilla (API externa)
-SEED_OWNER=tu-usuario
-SEED_REPO=tu-repo-de-ejercicios
-SEED_PATH=dataset/seed.json
-```
 --- 
 
 ## Capturas de pantalla
@@ -238,12 +209,6 @@ SEED_PATH=dataset/seed.json
   - Cobertura:
     - `fetchSeedExamplesFromGitHub`: Valida filtrado por topic/difficulty, formato Zod y manejo de rate limit (429)
     - `validateNumericAnswer`: Verifica validación correcta de expresiones y manejo de errores
-
-
-Checklist de entrega
-- [ ] .env.example completo en el repo.
-- [ ] README completo con user stories, decisiones técnicas, capturas.
-
 
 Notas finales
 - Se priorizó una entrega sólida y clara en 4 días: arquitectura separada (Vercel + Render), persistencia real (Mongo Atlas), tool calling nativo, JSON estructurado y panel de debug transparente.
