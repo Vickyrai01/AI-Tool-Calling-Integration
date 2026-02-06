@@ -6,11 +6,11 @@ function ensureClientId(req: Request, res: Response) {
   let id = req.cookies?.client_id as string | undefined;
   if (!id || typeof id !== 'string' || id.length < 8) {
     id = crypto.randomUUID();
-    // Cookie HttpOnly de 180 días
+    // Cookie HttpOnly de 180 días - sameSite: none para cross-site
     res.cookie('client_id', id, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: true, // en prod con HTTPS
+      sameSite: 'none',
+      secure: true,
       maxAge: 180 * 24 * 60 * 60 * 1000,
     });
   }

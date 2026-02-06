@@ -12,7 +12,7 @@ function ensureClientId(req: Request, res: Response) {
     id = crypto.randomUUID();
     res.cookie('client_id', id, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'none',
       secure: true,
       maxAge: 180 * 24 * 60 * 60 * 1000,
     });
