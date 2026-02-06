@@ -15,8 +15,9 @@ Definición del ChatBot
 
 Links de deploy
 - Frontend (Vercel): https://ai-tool-calling-integration.vercel.app
+---
 
-Arquitectura (alto nivel)
+## Arquitectura (alto nivel)
 ```
 Frontend (Next.js, Vercel)
    └── UI de chat, historial, bienvenida, debug sheet
@@ -26,8 +27,10 @@ Frontend (Next.js, Vercel)
 Backend (NestJS, Render/Railway)
    ├── POST /chat (OpenAI + tools, Zod, persistencia)
    └── GET /conversations, GET /conversations/:id
-
 ```
+
+### Diagrama de despliegue
+![Diagrama-despliegue](./docs/screenshots/diagrama-despliegue.png)
 
 ## Tecnologías principales
 
@@ -68,7 +71,7 @@ Backend (NestJS, Render/Railway)
 ---
 ### Tools/APIs elegidas
   - Tool externa: GitHub Contents API
-    - Dataset semilla versionado, auditable y de fácil acceso. Permite citar fuente y manejar rate limits de forma explícita. Es una API real distinta al LLM, cumpliendo el requisito y alineada al caso de estudio (ejercicios).
+    - Dataset semilla versionado y de fácil acceso. Permite citar fuente y manejar rate limits de forma explícita. Es una API real distinta al LLM, cumpliendo el requisito y alineada al caso de estudio (ejercicios): https://github.com/Vickyrai01/math-seed
   - Tool interna: validateNumericAnswer (mathjs)
     - Verificación determinística de respuestas numéricas del alumno; aporta lógica de negocio y evita delegar todo al LLM.
 - Manejo de errores y edge cases
