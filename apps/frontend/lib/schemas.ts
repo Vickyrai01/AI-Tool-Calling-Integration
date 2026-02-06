@@ -7,6 +7,12 @@ export const ExerciseSchema = z.object({
   statement: z.string(),
   steps: z.array(z.string()),
   answer: z.string(),
+  source: z
+    .object({
+      type: z.string().optional(),
+      url: z.string().url().optional(),
+    })
+    .optional(),
   sourceUrl: z.string().url().optional(),
 });
 

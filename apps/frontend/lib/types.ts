@@ -7,6 +7,10 @@ export type Exercise = {
   statement: string;
   steps: string[];
   answer: string;
+  source?: {
+    type?: string;
+    url?: string;
+  };
   sourceUrl?: string;
   createdAt?: string;
   messageId?: string;
