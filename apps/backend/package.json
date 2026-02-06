@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "build": "nest build --config nest-cli.json",
+    "build": "pnpm --filter=@pkg/shared build && nest build --config nest-cli.json",
     "start": "nest start --config nest-cli.json",
     "start:dev": "nest start --watch --config nest-cli.json",
     "start:debug": "nest start --debug --watch --config nest-cli.json",
