@@ -14,10 +14,7 @@ Definición del ChatBot
   - Generación continua de ejercicios alineados al examen, con pasos y respuestas verificables; historial persistente; cita de fuente al usar dataset semilla; panel de debug para transparencia técnica.
 
 Links de deploy
-- Frontend (Vercel): [URL pública del frontend]
-- Backend (Render/Railway): [URL pública del backend]
-- Base de datos: MongoDB Atlas (URI gestionada mediante variables de entorno)
-- Nota: configurar correctamente variables de entorno en ambos deploys.
+- Frontend (Vercel): https://ai-tool-calling-integration.vercel.app
 
 Arquitectura (alto nivel)
 ```
