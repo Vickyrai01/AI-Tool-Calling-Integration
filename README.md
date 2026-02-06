@@ -161,8 +161,6 @@ Requisitos:
 
 ![Bienvenida](./docs/screenshots/bienvenida-desktop.png)
 
-### Bienvenida en mobile
-
 ### Ejemplo de generación de ejercicios
 ![Ejercicio generado](./docs/screenshots/ejercicio-generado.png)
 
