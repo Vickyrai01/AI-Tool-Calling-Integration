@@ -37,7 +37,7 @@ Backend (NestJS, Render/Railway)
 - **Lenguaje:** TypeScript (frontend y backend)
 - **Frontend:** Next.js (React)
 - **Backend:** NestJS (Node.js)
-- **Base de datos:** MongoDB Atlas
+- **Base de datos:** MongoDB Atlas, Mongoose como ODM
 - **Orquestador LLM y tools:** OpenAI SDK
 - **Librerías clave:** 
   - Zod (validación de schemas)
@@ -54,7 +54,7 @@ Backend (NestJS, Render/Railway)
 ### Decisiones y justificación del stack
 
 - **Next.js**  
-  Elegido para el frontend ya que permite desarrollo veloz con React, soporte nativo para SSR y rutas, y despliegue automático en Vercel según lo requerido en la consigna.
+  Elegido para el frontend ya que permite desarrollo veloz con React y despliegue automático en Vercel según lo requerido en la consigna.
 
 - **NestJS**  
   Usado para el backend por su arquitectura modular, escalabilidad y robusta integración con herramientas modernas (OpenAI, MongoDB), además de manejo sencillo de middlewares, validación y CORS.
