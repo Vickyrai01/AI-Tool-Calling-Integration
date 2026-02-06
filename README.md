@@ -1,4 +1,4 @@
-# Bot de ejercicios de parcial — Ingreso UTN FRBA
+# ChatBot de ejercicios de parcial — Ingreso UTN FRBA
 
 Descripción del proyecto
 - Chatbot orientado a generar ejercicios de matemática con el mismo nivel y estilo que los parciales de ingreso de la UTN FRBA. 
