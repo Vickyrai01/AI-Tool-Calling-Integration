@@ -103,7 +103,9 @@ export class ChatService {
   }
 
   private async ensureConversation(conversationId?: string, userId?: string) {
-    if (conversationId) return new Types.ObjectId(conversationId);
+    if (conversationId && Types.ObjectId.isValid(conversationId)) {
+      return new Types.ObjectId(conversationId);
+    }
     const created = await this.ConversationModel.create({
       title: 'Nueva conversación',
       userId,
