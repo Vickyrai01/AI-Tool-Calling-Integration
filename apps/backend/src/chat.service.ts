@@ -13,7 +13,7 @@ import { SYSTEM_PROMPT, FEW_SHOTS } from './llm/prompt';
 import { fetchSeedExamplesFromGitHub } from './tools/fetchSeedExamples';
 import { validateNumericAnswer } from './tools/validateNumericAnswer';
 
-import { GenerateExercisesResponseSchema } from '@pkg/shared/schema/intents';
+import { GenerateExercisesResponseSchema } from '@pkg/shared';
 import { Conversation } from './schemas/conversations.schema';
 import { Message } from './schemas/message.schema';
 import { Exercise } from './schemas/exercise.schema';
