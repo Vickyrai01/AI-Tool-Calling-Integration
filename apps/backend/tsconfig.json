@@ -15,7 +15,8 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@pkg/*": ["../../packages/shared/src/*"]
+      "@pkg/shared": ["../../packages/shared/src/index.ts"],
+      "@pkg/shared/*": ["../../packages/shared/src/*"]
     },
     "incremental": true,
     "skipLibCheck": true,
