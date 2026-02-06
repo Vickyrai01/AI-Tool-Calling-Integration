@@ -13,7 +13,7 @@ Definición del ChatBot
 - Propuesta de valor
   - Generación continua de ejercicios alineados al examen, con pasos y respuestas verificables; historial persistente; cita de fuente al usar dataset semilla; panel de debug para transparencia técnica.
 
-Links de deploy
+Link del deploy
 - Frontend (Vercel): https://ai-tool-calling-integration.vercel.app
 ---
 
