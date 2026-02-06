@@ -7,11 +7,18 @@ async function bootstrap() {
 
   app.use(cookieParser() as any);
 
+  const frontendOrigins = [
+    process.env.FRONTEND_ORIGIN || "http://localhost:3000",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    /\.vercel\.app$/,
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: [process.env.FRONTEND_ORIGIN!], // ej: https://tu-app.vercel.app
+    origin: frontendOrigins,
     credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   });
 
   await app.listen(process.env.PORT || 3001);
