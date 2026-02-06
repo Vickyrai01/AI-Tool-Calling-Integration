@@ -124,7 +124,7 @@ export default function ChatPage() {
 
       if (res.conversationId && res.conversationId !== selectedConvId) {
         setSelectedConvId(res.conversationId);
-        setRefreshKey((k) => k + 1);
+        setRefreshKey((k) => k + 1); // Solo para actualizar sidebar
       }
 
       if ("data" in res && res.data?.exercises) {
@@ -169,10 +169,7 @@ export default function ChatPage() {
         ]);
       }
     } catch (e: any) {
-      const msg = e?.message
-        ? String(e.message)
-        : "Error al contactar el backend";
-      setError(msg);
+      setError("Error al contactar el backend");
     } finally {
       setLoading(false);
     }
@@ -193,11 +190,12 @@ export default function ChatPage() {
     setLastMeta(undefined);
   }
 
-  useEffect(() => {
-    if (selectedConvId && !selectedConvId.startsWith("draft-")) {
-      loadConversation(selectedConvId);
-    }
-  }, [refreshKey, selectedConvId, loadConversation]);
+  // Solo recargar conversación cuando el usuario selecciona explícitamente, no automáticamente
+  // useEffect(() => {
+  //   if (selectedConvId && !selectedConvId.startsWith("draft-")) {
+  //     loadConversation(selectedConvId);
+  //   }
+  // }, [refreshKey, selectedConvId, loadConversation]);
 
   const sidebar = useMemo(
     () => (
@@ -252,7 +250,7 @@ export default function ChatPage() {
                         role={it.role}
                         createdAt={it.createdAt}
                       >
-                        <b>{it.role === "user" ? "Usuario" : "Asistente"}:</b>{" "}
+                        
                         {it.text}
                       </MessageBubble>
                     );
